@@ -1,428 +1,316 @@
 # Intel471Ex
 
-An Elixir client library for Intel 471's Titan API providing access to cyber threat intelligence.
+An Elixir client library for Intel 471's Verity API providing access to cyber threat intelligence.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Basic Usage](#basic-usage)
+- [API Coverage](#api-coverage)
 - [API Examples](#api-examples)
   - [Actors](#actors)
-  - [Alerts](#alerts)
   - [Reports](#reports)
   - [Credentials](#credentials)
-  - [Vulnerabilities](#vulnerabilities)
-  - [IOCs](#iocs)
-  - [Search](#search)
   - [Watchers](#watchers)
-  - [Malware Intelligence](#malware-intelligence)
-- [Working with Streams](#working-with-streams)
+  - [Entities](#entities)
+  - [Indicators](#indicators)
+  - [Malware Intel](#malware-intel)
+  - [Observables](#observables)
+  - [GIRS](#girs)
+  - [Sources](#sources)
+  - [ASE](#ase)
+  - [Brand Exposure](#brand-exposure)
+  - [TPRM](#tprm)
+- [File Downloads](#file-downloads)
 - [Error Handling](#error-handling)
 
 ## Installation
 
-Add `intel471_titan` to your list of dependencies in `mix.exs`:
+Add `intel471_ex` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:intel471_titan, "~> 0.1.0"}
+    {:intel471_ex, "~> 0.2.0"}
   ]
 end
 ```
 
 ## Configuration
 
-This library uses system environment variables for authentication and configuration:
+This library uses system environment variables for authentication. Create an application in the [Verity Developer Portal](https://verity.intel471.com) to obtain a client ID and client secret:
 
 ```
 # Required
-INTEL471_USERNAME=your-email@example.com
-INTEL471_API_KEY=your-api-key
+VERITY_CLIENT_ID=your-verity-client-id
+VERITY_CLIENT_SECRET=your-verity-client-secret
 
 # Optional
-INTEL471_API_URL=https://api.intel471.com/v1  # Default API URL
-INTEL471_API_VERSION=1.20.0                   # Optional API version
+VERITY_API_URL=https://api.intel471.cloud  # Default API URL
 ```
 
-You can set these environment variables in your system or within your application:
+Set them in your application:
 
 ```elixir
-# Set in your application
-System.put_env("INTEL471_USERNAME", "your-email@example.com")
-System.put_env("INTEL471_API_KEY", "your-api-key")
+System.put_env("VERITY_CLIENT_ID", "your-client-id")
+System.put_env("VERITY_CLIENT_SECRET", "your-client-secret")
 ```
 
-## Basic Usage
+## API Coverage
 
-```elixir
-# Fetch actors matching "threat_actor"
-{:ok, result} = Intel471Ex.Actors.search(%{actor: "threat_actor"})
-IO.puts("Found #{result["actorTotalCount"]} actors")
-
-# Get a specific report
-{:ok, report} = Intel471Ex.Reports.get("32537c9c6dce18ce6ea4d5106540f089")
-IO.puts("Report title: #{report["subject"]}")
-```
+| Service | Module | Key Functions |
+|---------|--------|--------------|
+| Actors | `Intel471Ex.Actors` | `stream` |
+| ASE | `Intel471Ex.Ase` | `list_monitors` |
+| Brand Exposure | `Intel471Ex.BrandExposure` | Monitor CRUD, scan data, config |
+| Credentials | `Intel471Ex.Credentials` | Credential/set/occurrence streams and lookups |
+| Entities | `Intel471Ex.Entities` | `stream` |
+| GIRS | `Intel471Ex.Girs` | `tree` |
+| Indicators | `Intel471Ex.Indicators` | `stream`, `get_by_id` |
+| Malware Intel | `Intel471Ex.Malware` | `events_stream`, `list_malware`, `get_malware_family`, `download_file` |
+| Observables | `Intel471Ex.Observables` | `stream` |
+| Reports | `Intel471Ex.Reports` | Stream/detail for FINTel, Breach Alert, Geopol, Info, Spot, Malware, Vulnerability |
+| Sources | `Intel471Ex.Sources` | Stream/detail for data-leak-site posts, forum posts/messages, chat messages |
+| TPRM | `Intel471Ex.Tprm` | Monitor CRUD, scan data, config |
+| Watchers | `Intel471Ex.Watchers` | `alerts_stream`, `update_alert_status`, `watcher_groups`, `watchers` |
 
 ## API Examples
 
 ### Actors
 
 ```elixir
-# Search for actors
-{:ok, result} = Intel471Ex.Actors.search(%{actor: "synthx"})
-IO.inspect(result["actorTotalCount"])
+# Stream actors matching a search term
+{:ok, result} = Intel471Ex.Actors.stream(%{actor: "lazarus", size: 10})
+IO.puts("Found #{result["count"]} actors")
 
-# Search actors active on a specific forum
-{:ok, result} = Intel471Ex.Actors.search(%{forum: "0day"})
+# Stream with pagination
+{:ok, page1} = Intel471Ex.Actors.stream(%{actor: "conti", size: 5})
+cursor = page1["cursor_next"]
+{:ok, page2} = Intel471Ex.Actors.stream(%{actor: "conti", size: 5, cursor: cursor})
 
-# Get a specific actor by UID
-{:ok, actor} = Intel471Ex.Actors.get("e7fafbb8f44a6ded005c154976627da4")
-IO.inspect(actor["handles"])
-```
-
-### Alerts
-
-```elixir
-# Get recent alerts (last 24 hours)
-{:ok, result} = Intel471Ex.Alerts.list(%{from: "24hours", count: 10})
-IO.puts("Found #{result["alertTotalCount"]} alerts")
-
-# Get alerts from a specific watcher group
-{:ok, result} = Intel471Ex.Alerts.list(%{watcherGroup: "10dce938-3db9-463b-9c2f-b485ab398805"})
-
-# Continue pagination using the last alert's UID
-last_alert_uid = List.last(result["alerts"])["uid"]
-{:ok, next_page} = Intel471Ex.Alerts.list(%{count: 10, offset: last_alert_uid})
+# Filter by server type
+{:ok, result} = Intel471Ex.Actors.stream(%{actor: "conti", server_type: "telegram"})
 ```
 
 ### Reports
 
 ```elixir
-# Search for reports about ransomware
-{:ok, result} = Intel471Ex.Reports.search(%{report: "ransomware"})
-IO.puts("Found #{result["reportTotalCount"]} reports")
+# Stream all report types
+{:ok, result} = Intel471Ex.Reports.stream(%{text_filter: "ransomware", size: 10})
 
-# Search reports by location
-{:ok, result} = Intel471Ex.Reports.search(%{reportLocation: "Germany"})
+# FINTel reports
+{:ok, result} = Intel471Ex.Reports.fintel_stream(%{text_filter: "malware"})
+{:ok, report} = Intel471Ex.Reports.fintel_detail("report-id")
 
-# Get a specific report
-{:ok, report} = Intel471Ex.Reports.get("32537c9c6dce18ce6ea4d5106540f089")
+# Breach alerts
+{:ok, result} = Intel471Ex.Reports.breach_alert_stream(%{text_filter: "Communications"})
+{:ok, alert} = Intel471Ex.Reports.breach_alert_detail("alert-id")
 
-# Search breach alerts
-{:ok, alerts} = Intel471Ex.Reports.breach_alerts(%{breachAlert: "Communications"})
+# Geopolitical reports
+{:ok, result} = Intel471Ex.Reports.geopol_stream(%{country: "US"})
+{:ok, report} = Intel471Ex.Reports.geopol_detail("report-id")
 
-# Get a specific breach alert
-{:ok, alert} = Intel471Ex.Reports.get_breach_alert("8c5e0e87e683c62bb0a50baeff732152")
+# Info reports
+{:ok, result} = Intel471Ex.Reports.info_stream(%{text_filter: "vulnerability"})
 
-# Search spot reports
-{:ok, reports} = Intel471Ex.Reports.spot_reports(%{spotReport: "malware"})
+# Malware reports
+{:ok, result} = Intel471Ex.Reports.malware_stream(%{malware_family: "lokibot"})
 
-# Search situation reports
-{:ok, reports} = Intel471Ex.Reports.situation_reports(%{situationReport: "ransomware"})
+# Spot reports
+{:ok, result} = Intel471Ex.Reports.spot_stream(%{text_filter: "phishing"})
 
-# Search malware intelligence reports
-{:ok, reports} = Intel471Ex.Reports.malware_reports(%{malwareFamily: "lokibot"})
+# Vulnerability reports
+{:ok, result} = Intel471Ex.Reports.vulnerability_stream(%{cve_name: "CVE-2024-1234"})
+{:ok, vuln} = Intel471Ex.Reports.vulnerability_detail("vuln-id")
+
+# Download vulnerability report as PDF
+{:ok, %{body: pdf_data}} = Intel471Ex.Reports.vulnerability_download_pdf("vuln-id")
 ```
 
 ### Credentials
 
 ```elixir
-# Search credential sets
-{:ok, result} = Intel471Ex.Credentials.search_credential_sets(%{text: "breach"})
+# Stream credentials
+{:ok, result} = Intel471Ex.Credentials.credential_stream(%{domain: "example.com", size: 10})
+{:ok, credential} = Intel471Ex.Credentials.get_credential("credential-id")
 
-# Stream credential sets
-{:ok, result} = Intel471Ex.Credentials.stream_credential_sets(%{lastUpdatedFrom: 1656809200000})
+# Credential occurrences
+{:ok, result} = Intel471Ex.Credentials.credential_occurrence_stream(%{credential_id: "id"})
+{:ok, occurrence} = Intel471Ex.Credentials.get_credential_occurrence("occurrence-id")
 
-# With cursor for pagination
-cursor = result.cursor_next
-{:ok, next_page} = Intel471Ex.Credentials.stream_credential_sets(%{
-  lastUpdatedFrom: 1656809200000,
-  cursor: cursor
-})
+# Credential sets
+{:ok, result} = Intel471Ex.Credentials.credential_set_stream(%{victim: "example.com"})
+{:ok, set} = Intel471Ex.Credentials.get_credential_set("set-id")
 
-# Search credentials
-{:ok, creds} = Intel471Ex.Credentials.search_credentials(%{
-  credentialDomain: "example.com",
-  passwordStrength: "weak"
-})
-
-# Search credential occurrences
-{:ok, occurrences} = Intel471Ex.Credentials.search_credential_occurrences(%{
-  accessedUrl: "login.example.com"
-})
-
-# Search accessed URLs
-{:ok, urls} = Intel471Ex.Credentials.search_credential_accessed_urls(%{
-  domain: "example.com"
-})
-```
-
-### Vulnerabilities
-
-```elixir
-# Search for CVEs
-{:ok, vulns} = Intel471Ex.Vulnerabilities.cve_reports(%{
-  productName: "Chrome",
-  riskLevel: "high"
-})
-
-# Get a specific CVE
-{:ok, cve} = Intel471Ex.Vulnerabilities.get_cve_report("d6ec93bf8fdf355f7b35a3bc2c15566b")
-
-# Filter by patch status
-{:ok, unpatchedCVEs} = Intel471Ex.Vulnerabilities.cve_reports(%{
-  patchStatus: "unavailable",
-  riskLevel: "high"
-})
-```
-
-### IOCs
-
-```elixir
-# Search for Indicators of Compromise
-{:ok, result} = Intel471Ex.IOCs.search(%{ioc: ".com"})
-
-# Search by IOC type
-{:ok, result} = Intel471Ex.IOCs.search(%{
-  ioc: "192.168",
-  iocType: "IPAddress"
-})
-```
-
-### Search
-
-```elixir
-# Perform a global search across all data types
-{:ok, result} = Intel471Ex.Search.search(%{text: "ransomware"})
-
-# Search for specific entity types
-{:ok, result} = Intel471Ex.Search.search(%{
-  entityType: "EmailAddress",
-  text: "admin@"
-})
-
-# Search by IP address
-{:ok, result} = Intel471Ex.Search.search(%{ipAddress: "192.168.1.1"})
-
-# Search by URL
-{:ok, result} = Intel471Ex.Search.search(%{url: "malicious-site.com"})
-
-# Combined search
-{:ok, result} = Intel471Ex.Search.search(%{
-  text: "ransomware",
-  reportLocation: "United States",
-  from: 1627776000000,
-  until: 1627948800000
-})
+# Accessed URLs
+{:ok, result} = Intel471Ex.Credentials.credential_set_accessed_url_stream(%{credential_set_id: "id"})
 ```
 
 ### Watchers
 
 ```elixir
+# Stream alerts
+{:ok, result} = Intel471Ex.Watchers.alerts_stream(%{size: 10})
+
+# Update alert status
+{:ok, _} = Intel471Ex.Watchers.update_alert_status(12345, "read")
+
 # List watcher groups
-{:ok, groups} = Intel471Ex.Watchers.list_groups()
+{:ok, result} = Intel471Ex.Watchers.watcher_groups()
 
-# Create a new watcher group
-{:ok, group} = Intel471Ex.Watchers.create_group(%{
-  name: "Ransomware Monitoring",
-  description: "Monitor for new ransomware threats"
-})
-
-# Get a specific watcher group
-{:ok, group} = Intel471Ex.Watchers.list_groups("0bd66b73-c445-4b35-b3d4-742ed1e5a092")
-
-# Create a free text search watcher
-{:ok, watcher} = Intel471Ex.Watchers.create_watcher(
-  "0bd66b73-c445-4b35-b3d4-742ed1e5a092",
-  %{
-    type: "search",
-    description: "Monitor for ransomware mentions",
-    patterns: [%{types: "FreeText", pattern: "ransomware"}],
-    notificationChannel: "website",
-    notificationFrequency: "immediately"
-  }
-)
-
-# Create a specific search watcher
-{:ok, watcher} = Intel471Ex.Watchers.create_watcher(
-  "0bd66b73-c445-4b35-b3d4-742ed1e5a092",
-  %{
-    type: "search",
-    description: "Monitor for actor mentions",
-    patterns: [%{types: "Actor", pattern: "swisman"}],
-    notificationChannel: "website",
-    notificationFrequency: "immediately"
-  }
-)
-
-# Delete a watcher
-{:ok, _} = Intel471Ex.Watchers.delete_watcher(
-  "0bd66b73-c445-4b35-b3d4-742ed1e5a092",
-  "e1ada07bf9d0a14884844bcd85cd785a"
-)
+# List watchers
+{:ok, result} = Intel471Ex.Watchers.watchers(%{watcher_group_id: "group-id"})
 ```
 
-### Malware Intelligence
+### Entities
 
 ```elixir
-# Search for events
-{:ok, events} = Intel471Ex.Events.search(%{
-  malwareFamily: "lokibot"
-})
+# Stream entities
+{:ok, result} = Intel471Ex.Entities.stream(%{entity: "intel.com", size: 10})
+```
 
-# Stream events
-{:ok, stream} = Intel471Ex.Events.stream(%{
-  lastUpdatedFrom: 1655809200000
-})
+### Indicators
 
-# Get next page using cursor
-cursor = stream.cursorNext
-{:ok, next_page} = Intel471Ex.Events.stream(%{
-  lastUpdatedFrom: 1655809200000,
-  cursor: cursor
-})
-
-# Search for indicators
-{:ok, indicators} = Intel471Ex.Indicators.search(%{
-  indicatorType: "url",
-  confidence: "high"
-})
-
+```elixir
 # Stream indicators
-{:ok, stream} = Intel471Ex.Indicators.stream(%{
-  lastUpdatedFrom: 1655809200000
-})
+{:ok, result} = Intel471Ex.Indicators.stream(%{type: "domain", size: 10})
 
-# Search for YARA rules
-{:ok, yara} = Intel471Ex.YARA.search(%{
-  malwareFamily: "trickbot"
-})
+# Get indicator by ID
+{:ok, indicator} = Intel471Ex.Indicators.get_by_id("indicator-id")
 ```
 
-## Working with Streams
-
-Many endpoints offer stream variants that use cursors for efficient pagination of large datasets:
+### Malware Intel
 
 ```elixir
-# Stream credential sets
-{:ok, result} = Intel471Ex.Credentials.stream_credential_sets(%{
-  lastUpdatedFrom: 1656809200000
+# Stream malware events
+{:ok, result} = Intel471Ex.Malware.events_stream(%{malware_family_name: "lokibot", size: 10})
+{:ok, event} = Intel471Ex.Malware.get_event("event-id")
+
+# List malware families
+{:ok, result} = Intel471Ex.Malware.list_malware(%{text_filter: "trickbot"})
+
+# Get malware family detail
+{:ok, family} = Intel471Ex.Malware.get_malware_family("family-id")
+
+# Download malware file
+{:ok, %{body: file_data}} = Intel471Ex.Malware.download_file("filename.exe")
+```
+
+### Observables
+
+```elixir
+# Stream observables
+{:ok, result} = Intel471Ex.Observables.stream(%{observable: "8.8.8.8", size: 10})
+```
+
+### GIRS
+
+```elixir
+# Get the GIRS tree
+{:ok, tree} = Intel471Ex.Girs.tree()
+IO.puts("Found #{tree["count"]} GIR entries")
+```
+
+### Sources
+
+```elixir
+# Data leak site posts
+{:ok, result} = Intel471Ex.Sources.data_leak_site_posts_stream(%{text_filter: "ransomware"})
+
+# Forum posts
+{:ok, result} = Intel471Ex.Sources.forums_posts_stream(%{author: "username"})
+{:ok, post} = Intel471Ex.Sources.get_forum_post("post-id")
+
+# Forum private messages
+{:ok, result} = Intel471Ex.Sources.forums_private_messages_stream(%{author: "username"})
+
+# Chat messages
+{:ok, result} = Intel471Ex.Sources.chat_messages_stream(%{server_type: "telegram"})
+
+# Get an image
+{:ok, %{body: image_data}} = Intel471Ex.Sources.get_image("forum", "hash", "image.png")
+```
+
+### ASE
+
+```elixir
+# List ASE monitors
+{:ok, monitors} = Intel471Ex.Ase.list_monitors()
+```
+
+### Brand Exposure
+
+```elixir
+# Monitor CRUD
+{:ok, monitors} = Intel471Ex.BrandExposure.list_monitors()
+{:ok, monitor} = Intel471Ex.BrandExposure.create_monitor(%{
+  name: "example.com",
+  targets: ["example.com"],
+  labels: ["brand-monitor"],
+  frequency: "daily",
+  impact: "major"
+})
+{:ok, monitor} = Intel471Ex.BrandExposure.get_monitor("monitor-id")
+{:ok, _} = Intel471Ex.BrandExposure.delete_monitor("monitor-id")
+
+# Configuration
+{:ok, config} = Intel471Ex.BrandExposure.get_config_current("base")
+{:ok, schema} = Intel471Ex.BrandExposure.get_config_schema()
+```
+
+### TPRM
+
+```elixir
+# Monitor CRUD
+{:ok, monitors} = Intel471Ex.Tprm.list_monitors()
+{:ok, monitor} = Intel471Ex.Tprm.create_monitor(%{
+  name: "vendor.com",
+  targets: ["vendor.com"],
+  collection_method: "passive"
 })
 
-# Process all pages
-process_all_pages = fn fetch_fn, params ->
-  # Initial request
-  {:ok, response} = fetch_fn.(params)
-  
-  # Process first page
-  process_items(response.credential_sets)
-  
-  # Continue with pagination using cursor
-  fetch_next_page = fn
-    nil, _acc -> :done
-    cursor, acc ->
-      case fetch_fn.(Map.put(params, :cursor, cursor)) do
-        {:ok, %{credential_sets: [], cursor_next: _}} -> 
-          acc
-        {:ok, %{credential_sets: items, cursor_next: next_cursor}} ->
-          process_items(items)
-          fetch_next_page.(next_cursor, acc ++ items)
-        _ -> 
-          acc
-      end
-  end
-  
-  fetch_next_page.(response.cursor_next, response.credential_sets)
-end
+# Configuration (uses Bearer token for writes)
+{:ok, config} = Intel471Ex.Tprm.get_config_current("base")
+{:ok, _} = Intel471Ex.Tprm.put_config_user("base", %{"key" => "value"}, "bearer-token")
+```
 
-# Usage example
-all_items = process_all_pages.(&Intel471Ex.Credentials.stream_credential_sets/1, %{
-  lastUpdatedFrom: 1656809200000
-})
+## File Downloads
+
+```elixir
+# Download a file to a specific path
+{:ok, path} = Intel471Ex.Downloader.download_file(
+  "https://api.intel471.cloud/integrations/malware-intel/v1/malware/files/sample/download",
+  "/tmp/malware_sample.zip"
+)
+
+# Auto-extract filename from URL
+{:ok, path} = Intel471Ex.Downloader.download_file_auto(
+  "https://api.intel471.cloud/integrations/sources/v1/data-leak-sites/file-listings/123",
+  "downloads"
+)
 ```
 
 ## Error Handling
 
-The API returns standard Elixir result tuples:
-
 ```elixir
-case Intel471Ex.Actors.search(%{actor: "threat_actor"}) do
+case Intel471Ex.Actors.stream(%{actor: "test"}) do
   {:ok, result} ->
-    # Process successful result
-    IO.puts("Found #{result["actorTotalCount"]} actors")
-    
+    IO.puts("Found #{result["count"]} actors")
+
   {:error, %{status: status, message: message}} ->
-    # Handle API error
-    IO.puts("Error #{status}: #{message}")
-    
+    IO.puts("API error #{status}: #{message}")
+
   {:error, exception} ->
-    # Handle other errors (network issues, etc.)
-    IO.puts("Exception: #{inspect(exception)}")
+    IO.puts("Network error: #{inspect(exception)}")
 end
 ```
 
-## Advanced Examples
+## Migration from v0.1.x (Titan API)
 
-### Combining Multiple Search Parameters
+This version (0.2.0) is a breaking change. Key migration steps:
 
-```elixir
-# Search for high-risk vulnerabilities affecting Chrome with no patch available
-{:ok, vulns} = Intel471Ex.Vulnerabilities.cve_reports(%{
-  productName: "Chrome",
-  riskLevel: "high",
-  patchStatus: "unavailable"
-})
-
-# Search for credential leaks from a specific domain in the last 30 days
-{:ok, creds} = Intel471Ex.Credentials.search_credentials(%{
-  credentialDomain: "example.com",
-  from: "30days"
-})
-
-# Search for ransomware-related reports in a specific region
-{:ok, reports} = Intel471Ex.Reports.search(%{
-  report: "ransomware",
-  reportLocation: "Germany"
-})
-```
-
-### Working with Dates and Time Ranges
-
-```elixir
-# Using explicit timestamps (milliseconds since epoch)
-{:ok, actors} = Intel471Ex.Actors.search(%{
-  from: 1627776000000,  # July 31, 2021
-  until: 1630454400000  # September 1, 2021
-})
-
-# Using relative time strings
-{:ok, reports} = Intel471Ex.Reports.search(%{
-  report: "vulnerability",
-  from: "7days"  # Last 7 days
-})
-
-# Using both approaches in different parameters
-{:ok, alerts} = Intel471Ex.Alerts.list(%{
-  from: "24hours",
-  lastUpdatedFrom: 1655809200000
-})
-```
-
-### Filtering by GIR (General Intel Requirements)
-
-```elixir
-# Search for reports matching a specific GIR
-{:ok, reports} = Intel471Ex.Reports.search(%{
-  report: "malware",
-  gir: "1.1.3"
-})
-
-# Filter by company PIRs (Prioritized Intel Requirements)
-{:ok, reports} = Intel471Ex.Reports.search(%{
-  report: "ransomware",
-  filterByGirSet: "company_pirs"
-})
-```
+1. **Environment variables**: Replace `INTEL471_USERNAME`/`INTEL471_API_KEY` with `VERITY_CLIENT_ID`/`VERITY_CLIENT_SECRET`
+2. **API URL**: Default changed from `https://api.intel471.com/v1` to `https://api.intel471.cloud`
+3. **Removed modules**: `Intel471Ex.Alerts`, `Intel471Ex.Search`, `Intel471Ex.Vulnerabilities`
+4. **New modules**: `Entities`, `Indicators`, `Malware`, `Observables`, `Girs`, `Sources`, `Ase`, `BrandExposure`, `Tprm`
+5. **API style**: All endpoints now use cursor-based streaming instead of offset/count pagination

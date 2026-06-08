@@ -4,7 +4,7 @@ defmodule Intel471Ex.MixProject do
   def project do
     [
       app: :intel471_ex,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -26,22 +26,21 @@ defmodule Intel471Ex.MixProject do
   defp deps do
     [
       {:req, "~> 0.5.8"},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:rename, "~> 0.1.0", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
-  
+
   defp description do
     """
-    An Elixir client for Intel 471's Titan API for cyber threat intelligence.
+    An Elixir client for Intel 471's Verity API for cyber threat intelligence.
     """
   end
-  
+
   defp package do
     [
       licenses: ["BSD-3-Clause"],
       links: %{
-         "GitHub" => "https://github.com/osintowl/Intel471Ex"
+        "GitHub" => "https://github.com/osintowl/Intel471Ex"
       }
     ]
   end

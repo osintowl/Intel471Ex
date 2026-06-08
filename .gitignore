@@ -17,7 +17,7 @@ erl_crash.dump
 *.ez
 
 # Ignore package tarball (built via "mix hex.build").
-intel471_titan-*.tar
+intel471_ex-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
