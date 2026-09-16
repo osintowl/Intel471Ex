@@ -35,6 +35,18 @@ defmodule Intel471Ex.Sources do
   end
 
   @doc """
+  Get a data leak site post by ID.
+
+  ## Examples
+
+      {:ok, post} = Intel471Ex.Sources.get_data_leak_site_post("post-id")
+  """
+  @spec get_data_leak_site_post(String.t()) :: {:ok, map()} | {:error, any()}
+  def get_data_leak_site_post(id) do
+    Client.get("#{@service_path}/data-leak-sites/posts/#{id}")
+  end
+
+  @doc """
   Get a data leak site file listing (raw binary).
 
   ## Examples

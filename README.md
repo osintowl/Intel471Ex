@@ -144,6 +144,9 @@ cursor = page1["cursor_next"]
 
 # Accessed URLs
 {:ok, result} = Intel471Ex.Credentials.credential_set_accessed_url_stream(%{credential_set_id: "id"})
+
+# Accessed Domains
+{:ok, result} = Intel471Ex.Credentials.credential_set_accessed_domain_stream(%{credential_set_id: "id"})
 ```
 
 ### Watchers
@@ -216,6 +219,7 @@ IO.puts("Found #{tree["count"]} GIR entries")
 ```elixir
 # Data leak site posts
 {:ok, result} = Intel471Ex.Sources.data_leak_site_posts_stream(%{text_filter: "ransomware"})
+{:ok, post} = Intel471Ex.Sources.get_data_leak_site_post("post-id")
 
 # Forum posts
 {:ok, result} = Intel471Ex.Sources.forums_posts_stream(%{author: "username"})

@@ -140,4 +140,27 @@ defmodule Intel471Ex.Credentials do
   def credential_set_accessed_url_stream(params \\ %{}) do
     Client.get("#{@service_path}/credential-sets/accessed-urls/stream", params)
   end
+
+  # --- Credential Set Accessed Domains ---
+
+  @doc """
+  Stream credential set accessed domains matching filter criteria (cursor-paginated).
+
+  ## Parameters
+
+  - `params`: A map of query parameters
+    - `:credential_set_id` — Filter by credential set ID
+    - `:credential_set_name` — Filter by credential set name
+    - `:accessed_domain` — Filter by accessed domain
+    - `:girs` / `:victim` / `:from` / `:until`
+    - `:last_updated_from` / `:last_updated_until` / `:size` / `:cursor`
+
+  ## Examples
+
+      {:ok, result} = Intel471Ex.Credentials.credential_set_accessed_domain_stream(%{credential_set_id: "id", size: 10})
+  """
+  @spec credential_set_accessed_domain_stream(map()) :: {:ok, map()} | {:error, any()}
+  def credential_set_accessed_domain_stream(params \\ %{}) do
+    Client.get("#{@service_path}/credential-sets/accessed-domains/stream", params)
+  end
 end
